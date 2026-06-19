@@ -1,0 +1,62 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: azit-batch
+
+  threads:
+    virtual:
+      enabled: true
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+
+  jackson:
+    deserialization:
+      read_unknown_enum_values_as_null: true
+
+kakao:
+  oauth:
+    auth-url: https://kauth.kakao.com
+    api-url: https://kapi.kakao.com
+
+apple:
+  oauth:
+    apple-url: https://appleid.apple.com
+
+naver:
+  search:
+    api-url: https://openapi.naver.com
+
+default:
+  member:
+    profile-images:
+      - "/default/member/default_1.svg"
+      - "/default/member/default_2.svg"
+      - "/default/member/default_3.svg"
+      - "/default/member/default_4.svg"
+      - "/default/member/default_5.svg"
+      - "/default/member/default_6.svg"
+  crew:
+    image: "/default/crew/crew_default.svg"
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health # ??? ??? ??? health ?????? ??
+  endpoint:
+    health:
+      show-details: never # ?? ?? ??(DB ??, ??? ?? ?)? ??? "UP/DOWN" ??? ???
