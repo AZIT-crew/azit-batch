@@ -13,8 +13,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Configuration
-class MemberPurgeItemReader {
-
+class MemberPurgeItemReaderConfig {
     companion object {
         const val READER_NAME = "memberPurgeItemReader"
         const val WITHDRAWAL_GRACE_PERIOD_DAYS = 30L // AZIT_Server의 Member.WITHDRAWAL_GRACE_PERIOD_DAYS와 동일해야 함
@@ -42,22 +41,25 @@ class MemberPurgeItemReader {
     ): JpaCursorItemReader<Member> {
         requireNotNull(baseDate) { "baseDate JobParameter는 필수입니다. (형식: yyyy-MM-dd)" }
 
-        val purgeDeadline = to?.let(LocalDateTime::parse)
-            ?: LocalDate.parse(baseDate).atStartOfDay().minusDays(WITHDRAWAL_GRACE_PERIOD_DAYS)
+        val purgeDeadline =
+            to?.let(LocalDateTime::parse)
+                ?: LocalDate.parse(baseDate).atStartOfDay().minusDays(WITHDRAWAL_GRACE_PERIOD_DAYS)
         val fromDateTime = from?.let(LocalDateTime::parse)
 
-        val parameters = mutableMapOf<String, Any>(
-            "status" to MemberStatus.WITHDRAWN,
-            "purgeDeadline" to purgeDeadline,
-        )
-        val query = buildString {
-            append("SELECT m FROM Member m WHERE m.status = :status AND m.withdrawnAt <= :purgeDeadline")
-            if (fromDateTime != null) {
-                append(" AND m.withdrawnAt >= :from")
-                parameters["from"] = fromDateTime
+        val parameters =
+            mutableMapOf<String, Any>(
+                "status" to MemberStatus.WITHDRAWN,
+                "purgeDeadline" to purgeDeadline,
+            )
+        val query =
+            buildString {
+                append("SELECT m FROM Member m WHERE m.status = :status AND m.withdrawnAt <= :purgeDeadline")
+                if (fromDateTime != null) {
+                    append(" AND m.withdrawnAt >= :from")
+                    parameters["from"] = fromDateTime
+                }
+                append(" ORDER BY m.id")
             }
-            append(" ORDER BY m.id")
-        }
 
         return JpaCursorItemReaderBuilder<Member>()
             .name(READER_NAME)

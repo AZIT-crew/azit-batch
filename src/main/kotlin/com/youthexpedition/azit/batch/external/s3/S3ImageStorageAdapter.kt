@@ -10,7 +10,6 @@ class S3ImageStorageAdapter(
     private val s3Client: S3Client,
     @Value("\${spring.cloud.aws.s3.bucket}") private val bucket: String,
 ) : ImageStoragePort {
-
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun delete(s3Key: String) {

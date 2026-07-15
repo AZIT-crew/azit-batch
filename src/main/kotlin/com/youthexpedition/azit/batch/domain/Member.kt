@@ -16,24 +16,18 @@ class Member(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0L,
-
     @Enumerated(EnumType.STRING)
     @Column(name = "social_provider")
     val socialProvider: SocialProvider,
-
     @Column(name = "social_provider_id")
     val socialProviderId: String?,
-
     @Column(name = "apple_refresh_token")
     val appleRefreshToken: String?,
-
     @Column(name = "profile_image_url")
     val profileImageUrl: String?,
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     val status: MemberStatus,
-
     @Column(name = "withdrawn_at")
     val withdrawnAt: LocalDateTime?,
 )

@@ -31,7 +31,8 @@ class AppleClientSecretGenerator(
 
     fun generate(): String {
         val now = Instant.now()
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .header()
             .keyId(keyId)
             .add("alg", "ES256")
@@ -49,10 +50,12 @@ class AppleClientSecretGenerator(
 
     private fun loadPrivateKey(): PrivateKey =
         runCatching {
-            val privateKeyPem = Files.readString(Paths.get(keyPath))
-                .replace("-----BEGIN PRIVATE KEY-----", "")
-                .replace("-----END PRIVATE KEY-----", "")
-                .replace(Regex("\\s+"), "")
+            val privateKeyPem =
+                Files
+                    .readString(Paths.get(keyPath))
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replace(Regex("\\s+"), "")
             val encoded = Base64.getDecoder().decode(privateKeyPem)
             KeyFactory.getInstance("EC").generatePrivate(PKCS8EncodedKeySpec(encoded))
         }.getOrElse { exception ->

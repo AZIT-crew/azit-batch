@@ -4,7 +4,6 @@ import com.youthexpedition.azit.batch.domain.SocialProvider
 import com.youthexpedition.azit.batch.external.dto.SocialRevokeCommand
 
 interface SocialAuthPort {
-
     fun supports(provider: SocialProvider): Boolean
 
     /**

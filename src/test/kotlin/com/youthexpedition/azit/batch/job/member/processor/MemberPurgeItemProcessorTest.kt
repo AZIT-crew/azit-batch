@@ -9,7 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class MemberPurgeItemProcessorTest {
-
     private val processor = MemberPurgeItemProcessor()
 
     private fun withdrawnMember(profileImageUrl: String?): Member =

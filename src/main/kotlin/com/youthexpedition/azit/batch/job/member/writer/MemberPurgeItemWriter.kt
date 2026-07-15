@@ -16,7 +16,6 @@ class MemberPurgeItemWriter(
     private val imageStoragePort: ImageStoragePort,
     private val memberRepository: MemberRepository,
 ) : ItemWriter<MemberPurgeTarget> {
-
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun write(chunk: Chunk<out MemberPurgeTarget>) {
@@ -30,7 +29,8 @@ class MemberPurgeItemWriter(
      */
     private fun purge(target: MemberPurgeTarget) {
         // 1. 소셜 연동 해제
-        socialAuthPortRouter.getAdapter(target.socialProvider)
+        socialAuthPortRouter
+            .getAdapter(target.socialProvider)
             .revoke(SocialRevokeCommand(target.socialProviderId, target.appleRefreshToken))
 
         // 2. S3 프로필 이미지 삭제

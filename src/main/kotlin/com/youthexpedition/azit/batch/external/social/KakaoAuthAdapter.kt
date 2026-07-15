@@ -17,7 +17,6 @@ class KakaoAuthAdapter(
     @Qualifier("kakaoRestClient") private val kakaoRestClient: RestClient,
     @Value("\${kakao.oauth.admin-key}") private val adminKey: String,
 ) : SocialAuthPort {
-
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
@@ -36,11 +35,13 @@ class KakaoAuthAdapter(
         }
 
         try {
-            val formData = LinkedMultiValueMap<String, String>().apply {
-                add("target_id_type", TARGET_ID_TYPE)
-                add("target_id", targetId.toString())
-            }
-            kakaoRestClient.post()
+            val formData =
+                LinkedMultiValueMap<String, String>().apply {
+                    add("target_id_type", TARGET_ID_TYPE)
+                    add("target_id", targetId.toString())
+                }
+            kakaoRestClient
+                .post()
                 .uri(UNLINK_URI)
                 .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION_PREFIX + adminKey)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)

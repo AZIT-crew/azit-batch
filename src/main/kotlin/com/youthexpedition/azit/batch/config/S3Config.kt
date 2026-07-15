@@ -16,10 +16,10 @@ class S3Config(
 ) {
     @Bean
     fun s3Client(): S3Client =
-        S3Client.builder()
+        S3Client
+            .builder()
             .region(Region.of(region))
             .credentialsProvider(
                 StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)),
-            )
-            .build()
+            ).build()
 }

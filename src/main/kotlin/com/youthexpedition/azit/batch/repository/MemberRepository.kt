@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface MemberRepository : JpaRepository<Member, Long> {
-
     /**
      * 회원 개인정보 익명화 + 파기 완료(DELETED) 처리.
      * WHERE status = 'WITHDRAWN' 조건으로 배치 실행 중 재활성화된 회원(ACTIVE) 및
@@ -32,11 +31,15 @@ interface MemberRepository : JpaRepository<Member, Long> {
         """,
         nativeQuery = true,
     )
-    fun anonymize(@Param("memberId") memberId: Long): Int
+    fun anonymize(
+        @Param("memberId") memberId: Long,
+    ): Int
 
     @Modifying(clearAutomatically = true)
     @Query(value = "DELETE FROM delivery_address WHERE member_id = :memberId", nativeQuery = true)
-    fun deleteDeliveryAddresses(@Param("memberId") memberId: Long): Int
+    fun deleteDeliveryAddresses(
+        @Param("memberId") memberId: Long,
+    ): Int
 
     /**
      * 주문 레코드는 전자상거래법상 보존 의무(5년)가 있어 삭제하지 않고,
@@ -56,9 +59,13 @@ interface MemberRepository : JpaRepository<Member, Long> {
         """,
         nativeQuery = true,
     )
-    fun maskOrderDeliverySnapshots(@Param("memberId") memberId: Long): Int
+    fun maskOrderDeliverySnapshots(
+        @Param("memberId") memberId: Long,
+    ): Int
 
     @Modifying(clearAutomatically = true)
     @Query(value = "DELETE FROM point_history WHERE member_id = :memberId", nativeQuery = true)
-    fun deletePointHistories(@Param("memberId") memberId: Long): Int
+    fun deletePointHistories(
+        @Param("memberId") memberId: Long,
+    ): Int
 }

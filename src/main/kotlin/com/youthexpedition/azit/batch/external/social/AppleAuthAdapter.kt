@@ -16,7 +16,6 @@ class AppleAuthAdapter(
     private val appleClientSecretGenerator: AppleClientSecretGenerator,
     @Value("\${apple.oauth.client-id}") private val clientId: String,
 ) : SocialAuthPort {
-
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
@@ -34,13 +33,15 @@ class AppleAuthAdapter(
             return
         }
 
-        val formData = LinkedMultiValueMap<String, String>().apply {
-            add("client_id", clientId)
-            add("client_secret", appleClientSecretGenerator.generate())
-            add("token", refreshToken)
-            add("token_type_hint", TOKEN_TYPE_HINT)
-        }
-        appleRestClient.post()
+        val formData =
+            LinkedMultiValueMap<String, String>().apply {
+                add("client_id", clientId)
+                add("client_secret", appleClientSecretGenerator.generate())
+                add("token", refreshToken)
+                add("token_type_hint", TOKEN_TYPE_HINT)
+            }
+        appleRestClient
+            .post()
             .uri(REVOKE_URI)
             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
             .body(formData)

@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component
 
 @Component
 class MemberPurgeItemProcessor : ItemProcessor<Member, MemberPurgeTarget> {
-
     companion object {
         private const val DEFAULT_IMAGE_PREFIX = "/default"
     }
