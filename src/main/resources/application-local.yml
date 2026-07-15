@@ -3,6 +3,14 @@ spring:
     activate:
       on-profile: local
 
+  batch:
+    jdbc:
+      initialize-schema: always # 로컬은 배치 메타데이터 테이블 자동 생성
+    # 로컬 단일 잡 수동 실행 예시:
+    # ./gradlew bootRun --args="--spring.batch.job.name=memberPurgeJob baseDate=2026-07-09"
+    # job:
+    #   name: memberPurgeJob
+
   jpa:
     show-sql: false
     properties:

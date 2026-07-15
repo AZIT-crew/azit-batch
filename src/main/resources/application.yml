@@ -8,6 +8,10 @@ spring:
     virtual:
       enabled: true
 
+  batch:
+    jdbc:
+      initialize-schema: never # 메타데이터 테이블은 수동 생성 (local은 always로 오버라이드)
+
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
