@@ -3,8 +3,6 @@
     <property name="LOG_PATH" value="./logs" />
     <property name="LOG_FILE_NAME" value="azit-batch" />
 
-    <appender name="SENTRY" class="io.sentry.logback.SentryAppender" />
-
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%blue(%t)] %green(%logger{45}) : %msg%n</pattern>
@@ -23,7 +21,6 @@
 
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
-            <appender-ref ref="SENTRY" />
         </root>
     </springProfile>
 
@@ -56,10 +53,11 @@
             <appender-ref ref="ROLLING_FILE" />
             <appender-ref ref="ERROR_FILE" />
             <appender-ref ref="CONSOLE" />
-            <appender-ref ref="SENTRY" />
         </root>
     </springProfile>
 
     <logger name="org.springframework" level="WARN" />
+    <!-- 잡 시작/완료, Step 실행 결과 로그는 배치 운영에 필수이므로 INFO 유지 -->
+    <logger name="org.springframework.batch" level="INFO" />
     <logger name="org.hibernate" level="WARN" />
 </configuration>
