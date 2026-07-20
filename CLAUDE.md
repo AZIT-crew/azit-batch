@@ -15,31 +15,42 @@ com.youthexpedition.azit.batch
 ├── job
 │   └── {도메인명}/                    # member, crew, notification ...
 │       ├── {JobName}JobConfig.kt      # Job / Step 빈 정의
+│       ├── dto/                       # Reader → Processor → Writer 간 전달 DTO
 │       ├── reader/
-│       │   └── {JobName}ItemReader.kt
+│       │   └── {JobName}ItemReaderConfig.kt
 │       ├── processor/
 │       │   └── {JobName}ItemProcessor.kt
-│       └── writer/
-│           └── {JobName}ItemWriter.kt
+│       ├── writer/
+│       │   └── {JobName}ItemWriter.kt
+│       └── listener/
+│           └── {JobName}SkipListener.kt
 ├── external/                          # 외부 API 연동
 │   ├── dto/                           # 외부 API 요청/응답 DTO
-│   └── feign/
-│       ├── SocialAuthPort.kt          # 소셜 연동 포트 인터페이스
-│       ├── AppleAuthAdapter.kt        # SocialAuthPort 구현체
-│       └── KakaoAuthAdapter.kt        # SocialAuthPort 구현체
+│   ├── client/                        # @HttpExchange HTTP Interface 클라이언트
+│   │   ├── KakaoApiClient.kt
+│   │   └── AppleAuthClient.kt
+│   ├── social/
+│   │   ├── SocialAuthPort.kt          # 소셜 연동 포트 인터페이스
+│   │   ├── SocialAuthPortRouter.kt    # Provider별 어댑터 라우팅
+│   │   ├── AppleAuthAdapter.kt        # SocialAuthPort 구현체
+│   │   └── KakaoAuthAdapter.kt        # SocialAuthPort 구현체
+│   └── s3/
+│       ├── ImageStoragePort.kt
+│       └── S3ImageStorageAdapter.kt
 ├── domain/                            # JPA 엔티티 및 Enum
 ├── repository/                        # Spring Data JPA Repository
-└── config/                            # 전역 설정 (DataSource, JobLauncher 등)
+└── config/                            # 전역 설정 (S3Client, HTTP Interface 프록시 등)
 ```
 
 ### 계층별 책임
 
 - **JobConfig**: `@Configuration`으로 Job과 Step만 빈으로 등록합니다. 비즈니스 로직을 포함하지 않습니다.
-- **ItemReader**: 데이터 읽기 전담. `JpaPagingItemReader` 또는 `JdbcPagingItemReader`를 사용합니다.
+- **ItemReader**: 데이터 읽기 전담. 기본은 `JpaPagingItemReader` 또는 `JdbcPagingItemReader`를 사용하되,
+  처리 결과가 조회 조건에서 빠져나가는 잡(예: status 변경형 파기 잡)은 페이지 밀림(page drift)을 피하기 위해 `JpaCursorItemReader`를 사용합니다.
 - **ItemProcessor**: 단일 아이템 변환 및 비즈니스 로직 전담. DB 쓰기, 외부 API 호출 등 부수 효과를 포함하지 않습니다.
 - **ItemWriter**: 데이터 쓰기 전담.
 - **SocialAuthPort**: 소셜 제공자 무관한 추상 계약. 잡 로직은 구체 어댑터가 아닌 이 인터페이스에만 의존합니다.
-- **{Provider}AuthAdapter**: `SocialAuthPort` 구현체. Feign 클라이언트를 감싸고 외부 응답 DTO를 내부 형태로 변환합니다.
+- **{Provider}AuthAdapter**: `SocialAuthPort` 구현체. HTTP Interface 클라이언트를 감싸고 외부 응답을 내부 형태로 변환합니다.
 
 ### 의존 방향
 
@@ -108,10 +119,9 @@ fun isExpired(now: LocalDateTime): Boolean {
 @Configuration
 class MemberRevokeJobConfig(
     private val jobRepository: JobRepository,
-    private val transactionManager: PlatformTransactionManager,
-    private val memberItemReader: MemberRevokeItemReader,
-    private val memberItemProcessor: MemberRevokeItemProcessor,
-    private val memberItemWriter: MemberRevokeItemWriter,
+    private val memberRevokeItemReader: JpaCursorItemReader<Member>,
+    private val memberRevokeItemProcessor: MemberRevokeItemProcessor,
+    private val memberRevokeItemWriter: MemberRevokeItemWriter,
 ) {
     companion object {
         const val JOB_NAME = "memberRevokeJob"
@@ -125,13 +135,26 @@ class MemberRevokeJobConfig(
 
     @Bean
     fun memberRevokeStep(): Step = StepBuilder("memberRevokeStep", jobRepository)
-        .chunk<Member, Member>(CHUNK_SIZE, transactionManager)
-        .reader(memberItemReader.reader())
-        .processor(memberItemProcessor)
-        .writer(memberItemWriter)
+        .chunk<Member, Member>(CHUNK_SIZE) // Spring Batch 6: transactionManager 인자는 deprecated
+        .reader(memberRevokeItemReader)
+        .processor(memberRevokeItemProcessor)
+        .writer(memberRevokeItemWriter)
         .build()
 }
 ```
+
+### Spring Batch 6 패키지 주의
+
+Spring Boot 4.x의 Spring Batch 6은 인프라 클래스 패키지가 이동했습니다.
+
+| 클래스 | Batch 6 패키지 |
+|------|---------------|
+| `ItemReader` / `ItemProcessor` / `ItemWriter` / `Chunk` | `org.springframework.batch.infrastructure.item` |
+| `JpaCursorItemReader` 등 DB 리더 | `org.springframework.batch.infrastructure.item.database` |
+| `Job` / `Step` | `org.springframework.batch.core.job` / `org.springframework.batch.core.step` |
+| `SkipListener` | `org.springframework.batch.core.listener` |
+
+또한 `skipLimit()`은 `Long` 타입을 받습니다.
 
 ### JobParameter
 
@@ -152,7 +175,37 @@ fun memberRevokeItemReader(
 
 ---
 
-## 4. External 패키지 (Feign) 작성 규칙
+## 4. External 패키지 (HTTP Interface) 작성 규칙
+
+외부 API 호출은 Spring 내장 **HTTP Interface(`@HttpExchange`) + RestClient**를 사용합니다.
+(Spring Cloud OpenFeign은 maintenance mode이고 Boot 버전과의 호환 관리 부담이 있어 사용하지 않습니다.)
+
+### 클라이언트 인터페이스
+
+- `external/client/`에 `@HttpExchange` 인터페이스로 선언합니다.
+- form 전송 API는 `contentType = MediaType.APPLICATION_FORM_URLENCODED_VALUE`를 지정하면 `@RequestParam` 값들이 요청 본문으로 전송됩니다.
+
+```kotlin
+interface KakaoApiClient {
+    @PostExchange(url = "/v1/user/unlink", contentType = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    fun unlink(
+        @RequestHeader(HttpHeaders.AUTHORIZATION) authorization: String,
+        @RequestParam("target_id_type") targetIdType: String,
+        @RequestParam("target_id") targetId: Long,
+    )
+}
+```
+
+- 프록시 빈은 `config/HttpInterfaceConfig.kt`에서 `HttpServiceProxyFactory` + `RestClientAdapter`로 등록합니다.
+
+```kotlin
+@Bean
+fun kakaoApiClient(): KakaoApiClient =
+    HttpServiceProxyFactory
+        .builderFor(RestClientAdapter.create(RestClient.builder().baseUrl(kakaoApiUrl).build()))
+        .build()
+        .createClient(KakaoApiClient::class.java)
+```
 
 ### 포트 인터페이스
 
@@ -160,27 +213,26 @@ fun memberRevokeItemReader(
 
 ```kotlin
 interface SocialAuthPort {
-    fun revokeToken(accessToken: String)
     fun supports(provider: SocialProvider): Boolean
+    fun revoke(command: SocialRevokeCommand)
 }
 ```
 
 ### 어댑터 구현
 
 - 각 어댑터는 `SocialAuthPort`를 구현하고 `supports()`로 처리 가능한 Provider를 선언합니다.
-- Feign 클라이언트(`@FeignClient`)는 어댑터 내부에서만 사용합니다.
+- HTTP Interface 클라이언트는 어댑터 내부에서만 사용합니다.
 
 ```kotlin
 @Component
 class KakaoAuthAdapter(
-    private val kakaoAuthClient: KakaoAuthClient,
+    private val kakaoApiClient: KakaoApiClient,
 ) : SocialAuthPort {
-
     override fun supports(provider: SocialProvider): Boolean =
         provider == SocialProvider.KAKAO
 
-    override fun revokeToken(accessToken: String) {
-        kakaoAuthClient.unlinkUser("Bearer $accessToken")
+    override fun revoke(command: SocialRevokeCommand) {
+        kakaoApiClient.unlink(...)
     }
 }
 ```
@@ -205,10 +257,11 @@ class SocialAuthPortRouter(
 - 요청: `{Provider}{목적}Request` (예: `KakaoTokenRevokeRequest`)
 - 응답: `{Provider}{목적}Response` (예: `ApplePublicKeyResponse`)
 
-### Feign 예외 처리
+### HTTP 예외 처리
 
-- `FeignException`을 catch하여 배치 스킵 대상으로 전파하거나 로깅 후 처리합니다.
-- 소셜 API 오류로 배치 전체가 실패하지 않도록 `faultTolerant().skip(FeignException::class.java)` 구성을 고려합니다.
+- RestClient 기반이므로 4xx/5xx 응답 시 `RestClientResponseException`(`HttpClientErrorException` 등)이 발생합니다.
+- "이미 해제된 사용자" 같은 멱등성 응답은 어댑터에서 catch하여 성공으로 간주합니다.
+- 소셜 API 오류로 배치 전체가 실패하지 않도록 `faultTolerant().skip(...)` 구성을 고려합니다.
 
 ---
 
@@ -247,9 +300,8 @@ class SocialAuthPortRouter(
 
 ```kotlin
 .faultTolerant()
-.skip(IllegalArgumentException::class.java)
-.skip(FeignException::class.java)
-.skipLimit(10)
+.skip(Exception::class.java) // 회원 단위 격리가 필요한 잡은 광범위 skip + SkipListener 로깅
+.skipLimit(100L) // Spring Batch 6: Long 타입
 .listener(skipLoggingListener)
 ```
 
@@ -303,9 +355,11 @@ fun process_returnsNull_whenMemberAlreadyWithdrawn() {
 ## 9. 기술 스택 준수
 
 - **Kotlin 2.3.21** + **JVM 21**: Kotlin 관용 문법(data class, 확장 함수, 컬렉션 함수) 적극 활용
-- **Spring Boot 4.1.0**
+- **Spring Boot 4.1.0** (Spring Batch 6 — 패키지 이동 주의, 3장 참고)
+- **HTTP 클라이언트**: Spring 내장 RestClient + `@HttpExchange` HTTP Interface (Spring Cloud OpenFeign 미사용)
 - **Jakarta**: `javax.*` 패키지 대신 `jakarta.*` 패키지 사용
 - **Virtual Threads**: `spring.threads.virtual.enabled: true` 활성화 상태 유지
+- **린트**: ktlint 1.7.1, detekt 1.23.8 (detekt 클래스패스는 Kotlin 2.0.21로 고정 — build.gradle.kts 참고)
 
 ---
 
@@ -318,7 +372,7 @@ fun process_returnsNull_whenMemberAlreadyWithdrawn() {
 - [ ] `javax.*` 대신 `jakarta.*`를 사용하고 있는가?
 - [ ] `req`, `res`, `svc` 등 모호한 줄임말을 사용하지 않았는가?
 - [ ] 잡 로직이 `SocialAuthPort` 인터페이스를 통해 어댑터를 호출하는가?
-- [ ] Feign 클라이언트를 잡 로직에 직접 주입하지 않았는가?
+- [ ] HTTP Interface 클라이언트를 잡 로직에 직접 주입하지 않았는가?
 - [ ] `baseDate` 등 실행 기준값을 JobParameter로 주입받는가?
 - [ ] 청크 사이즈가 `companion object` 상수로 분리되어 있는가?
 - [ ] `ItemProcessor`에 DB 쓰기 또는 외부 API 호출이 포함되어 있지 않은가?
