@@ -1,25 +1,21 @@
 package com.youthexpedition.azit.batch.external.social
 
 import com.youthexpedition.azit.batch.domain.SocialProvider
+import com.youthexpedition.azit.batch.external.client.AppleAuthClient
 import com.youthexpedition.azit.batch.external.dto.SocialRevokeCommand
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
-import org.springframework.util.LinkedMultiValueMap
-import org.springframework.web.client.RestClient
 
 @Component
 class AppleAuthAdapter(
-    @Qualifier("appleRestClient") private val appleRestClient: RestClient,
+    private val appleAuthClient: AppleAuthClient,
     private val appleClientSecretGenerator: AppleClientSecretGenerator,
     @Value("\${apple.oauth.client-id}") private val clientId: String,
 ) : SocialAuthPort {
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        private const val REVOKE_URI = "/auth/revoke"
         private const val TOKEN_TYPE_HINT = "refresh_token"
     }
 
@@ -33,20 +29,12 @@ class AppleAuthAdapter(
             return
         }
 
-        val formData =
-            LinkedMultiValueMap<String, String>().apply {
-                add("client_id", clientId)
-                add("client_secret", appleClientSecretGenerator.generate())
-                add("token", refreshToken)
-                add("token_type_hint", TOKEN_TYPE_HINT)
-            }
-        appleRestClient
-            .post()
-            .uri(REVOKE_URI)
-            .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-            .body(formData)
-            .retrieve()
-            .toBodilessEntity()
+        appleAuthClient.revoke(
+            clientId = clientId,
+            clientSecret = appleClientSecretGenerator.generate(),
+            token = refreshToken,
+            tokenTypeHint = TOKEN_TYPE_HINT,
+        )
         log.info("애플 연동 해제에 성공했습니다.")
     }
 }

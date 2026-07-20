@@ -18,6 +18,7 @@ interface MemberRepository : JpaRepository<Member, Long> {
             UPDATE member SET
                 nickname = '탈퇴한 사용자',
                 email = NULL,
+                is_email_sharing_enabled = false,
                 social_provider_id = NULL,
                 apple_refresh_token = NULL,
                 profile_image_url = NULL,
