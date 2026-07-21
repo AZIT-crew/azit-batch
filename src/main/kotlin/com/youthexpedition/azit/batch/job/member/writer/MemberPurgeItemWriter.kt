@@ -18,9 +18,7 @@ class MemberPurgeItemWriter(
 ) : ItemWriter<MemberPurgeTarget> {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun write(chunk: Chunk<out MemberPurgeTarget>) {
-        chunk.items.forEach(::purge)
-    }
+    override fun write(chunk: Chunk<out MemberPurgeTarget>) = chunk.items.forEach(::purge)
 
     /**
      * 회원 1명 파기 파이프라인.

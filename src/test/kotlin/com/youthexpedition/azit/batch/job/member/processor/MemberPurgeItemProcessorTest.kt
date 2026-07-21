@@ -23,7 +23,7 @@ class MemberPurgeItemProcessorTest {
         )
 
     @Test
-    fun process_extractsS3Key_whenOwnUploadedImage() {
+    fun process_whenOwnUploadedImage_extractsS3Key() {
         // given
         val member = withdrawnMember("/profile/1/2026-06-01_uuid.jpg")
 
@@ -35,7 +35,7 @@ class MemberPurgeItemProcessorTest {
     }
 
     @Test
-    fun process_extractsS3Key_whenTempImage() {
+    fun process_whenTempImage_extractsS3Key() {
         // given - 이미지 이동 전에 탈퇴한 경우 temp 경로가 남을 수 있음
         val member = withdrawnMember("/temp/profile/1/2026-06-01_uuid.jpg")
 
@@ -47,7 +47,7 @@ class MemberPurgeItemProcessorTest {
     }
 
     @Test
-    fun process_returnsNullS3Key_whenDefaultImage() {
+    fun process_whenDefaultImage_returnsNullS3Key() {
         // given - 공용 기본 이미지는 삭제 대상이 아님
         val member = withdrawnMember("/default/member/default_1.svg")
 
@@ -59,7 +59,7 @@ class MemberPurgeItemProcessorTest {
     }
 
     @Test
-    fun process_returnsNullS3Key_whenExternalUrl() {
+    fun process_whenExternalUrl_returnsNullS3Key() {
         // given - 카카오 프로필 등 외부 URL은 삭제 대상이 아님
         val member = withdrawnMember("https://k.kakaocdn.net/profile/abc123.jpg")
 
@@ -71,7 +71,7 @@ class MemberPurgeItemProcessorTest {
     }
 
     @Test
-    fun process_returnsNullS3Key_whenProfileImageUrlIsNull() {
+    fun process_whenProfileImageUrlIsNull_returnsNullS3Key() {
         // given
         val member = withdrawnMember(null)
 
@@ -83,7 +83,7 @@ class MemberPurgeItemProcessorTest {
     }
 
     @Test
-    fun process_mapsMemberFields() {
+    fun process_validMember_mapsMemberFields() {
         // given
         val member = withdrawnMember(null)
 
