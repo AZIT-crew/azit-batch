@@ -16,12 +16,12 @@ interface MemberRepository : JpaRepository<Member, Long> {
     @Query(
         value = """
             UPDATE member SET
-                nickname = '탈퇴한 사용자',
+                nickname = '알 수 없음',
                 email = NULL,
                 is_email_sharing_enabled = false,
                 social_provider_id = NULL,
                 apple_refresh_token = NULL,
-                profile_image_url = NULL,
+                profile_image_url = '/default/member/default_unknown.svg',
                 essential_terms_agreed_at = NULL,
                 marketing_terms_agreed_at = NULL,
                 notification_agreed_at = NULL,
