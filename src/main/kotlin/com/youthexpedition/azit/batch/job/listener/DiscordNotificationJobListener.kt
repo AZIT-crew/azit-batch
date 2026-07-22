@@ -26,9 +26,6 @@ class DiscordNotificationJobListener(
     companion object {
         private const val SUCCESS_COLOR = 0x00FF00
         private const val FAILURE_COLOR = 0xFF0000
-
-        // 임베드 description 한도(4096자)에 여유를 두고 스택트레이스를 자른다.
-        private const val ERROR_DETAIL_MAX_LENGTH = 2000
     }
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -70,17 +67,13 @@ class DiscordNotificationJobListener(
         )
     }
 
+    /**
+     * 예외 타입과 실행 ID만 남김
+     */
     private fun buildErrorDescription(jobExecution: JobExecution): String? =
         jobExecution.allFailureExceptions.firstOrNull()?.let { exception ->
-            val stackTrace = exception.stackTraceToString()
-            val isTruncated = stackTrace.length > ERROR_DETAIL_MAX_LENGTH
-            buildString {
-                appendLine("**오류**: ${exception.message}")
-                appendLine("```")
-                append(stackTrace.take(ERROR_DETAIL_MAX_LENGTH))
-                if (isTruncated) append("\n...(생략, 전체 스택트레이스는 서버 로그 참고)")
-                appendLine()
-                appendLine("```")
-            }
+            "**예외 타입**: `${exception::class.simpleName}`\n" +
+                "**실행 ID**: `${jobExecution.id}`\n" +
+                "상세 내용은 서버 로그에서 실행 ID로 확인하세요."
         }
 }
