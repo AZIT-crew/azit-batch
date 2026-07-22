@@ -82,3 +82,9 @@ configurations.matching { it.name.startsWith("detekt") }.all {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// plain jar(원본 jar) 생성을 꺼서 build/libs에 실행 가능한 bootJar 산출물만 남긴다.
+// Dockerfile이 "-plain" 제외 글롭 없이 build/libs/*.jar 하나만 신뢰하고 복사할 수 있게 하기 위함
+tasks.named("jar") {
+    enabled = false
+}
