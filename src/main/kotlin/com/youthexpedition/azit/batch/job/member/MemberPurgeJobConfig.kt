@@ -1,6 +1,7 @@
 package com.youthexpedition.azit.batch.job.member
 
 import com.youthexpedition.azit.batch.domain.Member
+import com.youthexpedition.azit.batch.job.listener.DiscordNotificationJobListener
 import com.youthexpedition.azit.batch.job.member.dto.MemberPurgeTarget
 import com.youthexpedition.azit.batch.job.member.listener.MemberPurgeStepListener
 import com.youthexpedition.azit.batch.job.member.processor.MemberPurgeItemProcessor
@@ -30,6 +31,7 @@ class MemberPurgeJobConfig(
     private val memberPurgeItemProcessor: MemberPurgeItemProcessor,
     private val memberPurgeItemWriter: MemberPurgeItemWriter,
     private val memberPurgeStepListener: MemberPurgeStepListener,
+    private val discordNotificationJobListener: DiscordNotificationJobListener,
 ) {
     companion object {
         const val JOB_NAME = "memberPurgeJob"
@@ -42,6 +44,7 @@ class MemberPurgeJobConfig(
     fun memberPurgeJob(): Job =
         JobBuilder(JOB_NAME, jobRepository)
             .start(memberPurgeStep())
+            .listener(discordNotificationJobListener)
             .build()
 
     /**

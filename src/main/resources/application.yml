@@ -41,6 +41,10 @@ naver:
   search:
     api-url: https://openapi.naver.com
 
+discord:
+  webhook:
+    notification-url: ${DISCORD_WEBHOOK_URL}
+
 default:
   member:
     profile-images:
