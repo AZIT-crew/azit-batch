@@ -3,7 +3,6 @@ package com.youthexpedition.azit.batch.job.listener
 import com.youthexpedition.azit.batch.external.client.DiscordWebhookClient
 import com.youthexpedition.azit.batch.external.dto.DiscordEmbed
 import com.youthexpedition.azit.batch.external.dto.DiscordEmbedField
-import com.youthexpedition.azit.batch.external.dto.DiscordEmbedFooter
 import com.youthexpedition.azit.batch.external.dto.DiscordWebhookMessageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.BatchStatus
@@ -29,7 +28,7 @@ class DiscordNotificationJobListener(
         private const val FAILURE_COLOR = 0xFF0000
 
         // 임베드 description 한도(4096자)에 여유를 두고 스택트레이스를 자른다.
-        private const val ERROR_DETAIL_MAX_LENGTH = 3000
+        private const val ERROR_DETAIL_MAX_LENGTH = 2000
     }
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,7 +55,6 @@ class DiscordNotificationJobListener(
         return DiscordEmbed(
             title = "⚙️ AZIT Batch 실행 결과",
             color = if (isSuccess) SUCCESS_COLOR else FAILURE_COLOR,
-            description = if (isSuccess) null else buildErrorDescription(jobExecution),
             fields =
                 listOf(
                     DiscordEmbedField("실행 환경", "`$profile`"),
@@ -67,12 +65,13 @@ class DiscordNotificationJobListener(
                     DiscordEmbedField("스킵", "${skipCount}건"),
                     DiscordEmbedField("소요시간", durationSeconds?.let { "${it}초" } ?: "알 수 없음"),
                 ),
+            description = if (isSuccess) null else buildErrorDescription(jobExecution),
             timestamp = endTime.atZone(ZoneId.systemDefault()).toInstant().toString(),
         )
     }
 
     private fun buildErrorDescription(jobExecution: JobExecution): String? =
-        jobExecution.failureExceptions.firstOrNull()?.let { exception ->
+        jobExecution.allFailureExceptions.firstOrNull()?.let { exception ->
             val stackTrace = exception.stackTraceToString()
             val isTruncated = stackTrace.length > ERROR_DETAIL_MAX_LENGTH
             buildString {
