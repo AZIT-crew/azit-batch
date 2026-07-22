@@ -33,6 +33,9 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.29.9"))
     implementation("software.amazon.awssdk:s3") // 프로필 이미지 삭제
     runtimeOnly("com.mysql:mysql-connector-j")
+    // Batch 잡 실행을 뉴렐릭 백그라운드 트랜잭션으로 표시하기 위한 @Trace 어노테이션
+    // (계측 자체는 Dockerfile의 -javaagent가 수행하며, 이 API는 agent 미부착 시 no-op으로 동작)
+    implementation("com.newrelic.agent.java:newrelic-api:9.1.0")
     testImplementation("org.springframework.boot:spring-boot-starter-batch-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
