@@ -19,7 +19,8 @@ complexity:
     functionThreshold: 8
     constructorThreshold: 8
     ignoreAnnotated:
-      - "Entity"  # JPA 엔티티는 테이블 컬럼 수만큼 생성자 파라미터가 필요
+      - "Entity"         # JPA 엔티티는 테이블 컬럼 수만큼 생성자 파라미터가 필요
+      - "Configuration"  # Spring @Configuration은 주입 빈 수만큼 생성자 파라미터가 필요
   TooManyFunctions:
     active: true
     thresholdInFiles: 20
