@@ -12,6 +12,8 @@
 # 파일 규약 (배포 워크플로우가 생성):
 #   $APP_DIR/.env         : 컨테이너 환경변수 + 배포 메타(DOCKER_USERNAME, IMAGE_TAG, TARGET_PROFILE)
 #   $APP_DIR/keys/         : 소셜/인증용 키 파일(애플 .p8 등, 향후 추가 가능). 컨테이너 /app/keys 로 마운트, 수동 배치
+#   $APP_DIR/logs/         : 파일 로그(azit-batch.log, error.log, 7일치 보존). 컨테이너 /app/logs 로 마운트 (컨테이너가
+#                            --rm로 즉시 삭제되므로 볼륨 마운트 없이는 로그가 로컬에 남지 않음)
 #
 set -euo pipefail
 
@@ -42,5 +44,6 @@ docker run --rm \
     -e SPRING_PROFILES_ACTIVE="${TARGET_PROFILE:-prod}" \
     -e NEW_RELIC_APP_NAME="azit-batch-${TARGET_PROFILE:-prod}" \
     -v "$APP_DIR/keys:/app/keys:ro" \
+    -v "$APP_DIR/logs:/app/logs" \
     "$IMAGE" \
     --spring.batch.job.name="$JOB_NAME" "$@"

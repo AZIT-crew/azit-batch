@@ -53,6 +53,9 @@ sudo chown -R "$USER" /opt/azit-batch
 cp AuthKey_XXXX.p8 /opt/azit-batch/keys/
 chmod 644 /opt/azit-batch/keys/*
 
+# logs도 컨테이너 안 azit 계정이 파일을 쓸 수 있어야 한다 (호스트 ubuntu와 컨테이너 azit는 다른 UID)
+chmod 777 /opt/azit-batch/logs
+
 # Docker Hub private 이미지면 서버에서도 로그인
 docker login -u <DOCKER_USERNAME>
 
