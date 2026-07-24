@@ -1,8 +1,9 @@
 name: azit-batch CD (Deploy)
 run-name: azit-batch deployed to (${{ github.event.inputs.profile }}) by @${{ github.actor }}
 
-# 배치는 상시 구동이 아니므로 여기서 컨테이너를 "실행"하지 않음
-# 이미지 push + 서버에 .env/스크립트/이미지 준비까지만 하고, 실제 실행은 서버 cron / 수동 워크플로우가 담당
+# self-hosted runner를 각 서버(dev/prod)에 등록해두고, deploy 잡이 그 서버 위에서 직접 돈다.
+# SSH/scp 없이 로컬 파일 쓰기 + docker pull 만으로 배포가 끝난다 (방화벽/러너 IP 이슈 없음).
+# 이미지 push + 서버에 .env/스크립트/이미지 준비까지만 하고, 실제 실행은 서버 cron / 수동 워크플로우가 담당한다.
 on:
   workflow_dispatch:
     inputs:
@@ -55,7 +56,11 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    # profile과 같은 이름의 라벨을 가진 self-hosted runner(=해당 환경 서버)로 라우팅된다.
+    # 사전 준비: 각 서버에 self-hosted runner를 등록하며 --labels dev(또는 prod) 를 지정해야 한다.
+    runs-on:
+      - self-hosted
+      - ${{ github.event.inputs.profile }}
     environment: ${{ github.event.inputs.profile }}
     env:
       APP_DIR: /opt/azit-batch
@@ -63,49 +68,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Copy run script to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.GABIA_HOST }}
-          username: ${{ secrets.GABIA_USER }}
-          key: ${{ secrets.GABIA_SSH_KEY }}
-          port: ${{ secrets.GABIA_PORT }}
-          source: "deploy/run-job.sh"
-          target: ${{ env.APP_DIR }}
-          strip_components: 1 # deploy/ 폴더를 떼고 파일만 전송
+      - name: Write .env
+        run: |
+          mkdir -p ${{ env.APP_DIR }}
+          cat <<EOF > ${{ env.APP_DIR }}/.env
+          DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG=${{ github.event.inputs.version }}
+          TARGET_PROFILE=${{ github.event.inputs.profile }}
+          DB_URL=${{ secrets.DB_URL }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          AWS_S3_ACCESS_KEY=${{ secrets.AWS_S3_ACCESS_KEY }}
+          AWS_S3_SECRET_KEY=${{ secrets.AWS_S3_SECRET_KEY }}
+          KAKAO_ADMIN_KEY=${{ secrets.KAKAO_ADMIN_KEY }}
+          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SERVICE_ID=${{ secrets.APPLE_SERVICE_ID }}
+          APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
+          APPLE_KEY_PATH=${{ secrets.APPLE_KEY_PATH }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}
+          EOF
+          chmod 600 ${{ env.APP_DIR }}/.env
 
-      - name: Write .env, pull image on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.GABIA_HOST }}
-          username: ${{ secrets.GABIA_USER }}
-          key: ${{ secrets.GABIA_SSH_KEY }}
-          port: ${{ secrets.GABIA_PORT }}
-          script: |
-            set -e
-            cd ${{ env.APP_DIR }}
-            cat <<EOF > .env
-            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            IMAGE_TAG=${{ github.event.inputs.version }}
-            TARGET_PROFILE=${{ github.event.inputs.profile }}
-            DB_URL=${{ secrets.DB_URL }}
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            AWS_S3_ACCESS_KEY=${{ secrets.AWS_S3_ACCESS_KEY }}
-            AWS_S3_SECRET_KEY=${{ secrets.AWS_S3_SECRET_KEY }}
-            KAKAO_ADMIN_KEY=${{ secrets.KAKAO_ADMIN_KEY }}
-            APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
-            APPLE_SERVICE_ID=${{ secrets.APPLE_SERVICE_ID }}
-            APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
-            APPLE_KEY_PATH=${{ secrets.APPLE_KEY_PATH }}
-            DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
-            NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}
-            EOF
-            chmod 600 .env
-            chmod +x run-job.sh
-            docker pull ${{ secrets.DOCKER_USERNAME }}/azit-batch:${{ github.event.inputs.version }}
-            docker image prune -f
-            echo "배포 완료: ${{ secrets.DOCKER_USERNAME }}/azit-batch:${{ github.event.inputs.version }} (profile=${{ github.event.inputs.profile }})"
+      - name: Install run-job.sh
+        run: |
+          cp deploy/run-job.sh ${{ env.APP_DIR }}/run-job.sh
+          chmod +x ${{ env.APP_DIR }}/run-job.sh
+
+      - name: Pull image
+        run: |
+          docker pull ${{ secrets.DOCKER_USERNAME }}/azit-batch:${{ github.event.inputs.version }}
+          docker image prune -f
+          echo "배포 완료: ${{ secrets.DOCKER_USERNAME }}/azit-batch:${{ github.event.inputs.version }} (profile=${{ github.event.inputs.profile }})"
 
   notify:
     needs: [build-and-push, deploy]
@@ -118,7 +112,7 @@ jobs:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           noprefix: true
           status: ${{ needs.build-and-push.result == 'success' && needs.deploy.result == 'success' && 'success' || 'failure' }}
-          title: "🚀 AZIT 배치 배포 결과"
+          title: "🚀 azit-batch 배포 결과"
           description: |
             **배포 환경:** `${{ github.event.inputs.profile }}`
             **버전:** `${{ github.event.inputs.version }}`

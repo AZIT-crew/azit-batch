@@ -3,38 +3,43 @@
 배치는 상시 구동하지 않는다. **매일 서버 cron이 컨테이너를 원샷 실행**하고, 잡이 끝나면 프로세스가 종료된다.
 
 ```
-GitHub Actions(deploy, profile=dev/prod)     빌드 → Docker Hub push → 해당 환경 서버에 SSH: .env 생성 + run-job.sh 갱신 + 이미지 pull
+GitHub Actions(deploy, profile=dev/prod)     [해당 서버의 self-hosted runner에서 직접 실행] .env 생성 + run-job.sh 설치 + docker pull
 Gabia cron(매일)                             run-job.sh memberPurgeJob baseDate=오늘
-GitHub Actions(수동, profile + jobName)      SSH → run-job.sh <jobName> <parameters>
+GitHub Actions(수동, profile + jobName)      [해당 서버의 self-hosted runner에서 직접 실행] run-job.sh <jobName> <parameters>
 ```
 
 `run-job.sh` 는 잡 이름과 파라미터를 받는 범용 런처다. 새 배치 잡이 생겨도 cron 한 줄 / 수동 워크플로우 입력값만 바꿔 재사용한다.
 
-RDS 인바운드가 Gabia 서버 IP로만 열려 있으므로, 실제 컨테이너 실행은 항상 Gabia 서버에서 이뤄진다. GitHub 러너는 SSH로 명령만 내린다.
+**SSH를 쓰지 않는다.** dev/prod 서버 각각에 GitHub Actions **self-hosted runner** 를 설치해두면, `deploy`/`run-job` 워크플로우가 그 서버 위에서 직접 실행된다. `profile` 입력값이 곧 러너를 고르는 라벨이라(`runs-on: [self-hosted, dev]` 또는 `prod`), 원하는 서버로 자동 라우팅된다. 이 방식이면 GitHub 러너의 (매번 바뀌는) IP를 서버 방화벽에 허용해줄 필요가 없다.
+
+> **보안 참고**: self-hosted runner는 보통 "외부 PR이 워크플로우를 트리거해 서버에서 임의 코드를 실행"하는 게 위험 포인트다. 여기 두 워크플로우는 모두 `workflow_dispatch`(수동 실행)만 트리거로 두고 있어 저장소에 write 권한이 있는 사람만 실행할 수 있다 — 이 구조를 유지하는 한 `pull_request` 등 외부에서 자동으로 트리거되는 이벤트를 이 러너에 연결하지 않는다.
 
 ---
 
-## 1. GitHub 설정
+## 1. self-hosted runner 등록 (환경별 서버마다 1회)
 
-**저장소 공통 Secrets** (Settings → Secrets → Actions):
+GitHub 저장소 → **Settings → Actions → Runners → New self-hosted runner** 에서 Linux/x64를 선택하면 해당 서버에서 실행할 등록 명령이 표시된다. 그대로 실행하되, `./config.sh` 단계에서 **환경에 맞는 라벨을 반드시 지정**한다.
 
-| Secret | 설명 |
-|--------|------|
-| `DOCKER_USERNAME` | Docker Hub 사용자명 (이미지: `<username>/azit-batch`) |
-| `DOCKER_PASSWORD` | Docker Hub Access Token |
-| `DISCORD_WEBHOOK` | 배포 결과 알림용 웹훅 (notify 잡) |
+```bash
+mkdir actions-runner && cd actions-runner
+# 아래 curl/tar 줄은 GitHub UI가 보여주는 최신 버전 명령을 그대로 사용
+curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/vX.X.X/actions-runner-linux-x64-X.X.X.tar.gz
+tar xzf ./actions-runner-linux-x64.tar.gz
 
-**환경별 Secrets** (Settings → Environments → `dev` / `prod` 각각):
+# dev 서버라면 --labels dev, prod 서버라면 --labels prod
+./config.sh --url https://github.com/<org>/azit-batch --token <GitHub UI가 발급한 토큰> --labels dev --name azit-batch-dev-runner
 
-| Secret | 설명 |
-|--------|------|
-| `GABIA_HOST` / `GABIA_USER` / `GABIA_SSH_KEY` / `GABIA_PORT` | SSH 접속 정보 |
-| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | 대상 RDS (dev/prod 다름) |
-| `AWS_S3_ACCESS_KEY` / `AWS_S3_SECRET_KEY` | S3 |
-| `KAKAO_ADMIN_KEY` | 카카오 연동 해제 |
-| `APPLE_TEAM_ID` / `APPLE_SERVICE_ID` / `APPLE_KEY_ID` / `APPLE_KEY_PATH` | 애플 연동 해제 (KEY_PATH는 컨테이너 내부 경로) |
-| `DISCORD_WEBHOOK_URL` | 배치 결과 알림 (컨테이너 내부) |
-| `NEW_RELIC_LICENSE_KEY` | 선택 |
+# 서비스로 등록해 재부팅 후에도 자동 시작
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+러너를 실행하는 계정이 `docker` 그룹에 속해 있어야 `docker pull`/`docker run` 이 동작한다:
+
+```bash
+sudo usermod -aG docker $(whoami)
+# 적용을 위해 세션 재접속 또는 서버 재부팅
+```
 
 ## 2. 서버 최초 세팅 (환경별 서버마다 1회)
 

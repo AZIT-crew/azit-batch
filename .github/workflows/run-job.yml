@@ -1,7 +1,7 @@
 name: Run batch job (manual)
 run-name: run ${{ github.event.inputs.jobName }} on (${{ github.event.inputs.profile }}) by @${{ github.actor }}
 
-# 임의의 배치 잡을 수동 실행한다 (SSH -> 서버의 run-job.sh). 대상 서버는 profile(환경)로 결정된다.
+# 임의의 배치 잡을 수동 실행한다. profile과 같은 라벨의 self-hosted runner(=해당 환경 서버) 위에서 run-job.sh를 직접 실행한다.
 # 새 잡이 추가돼도 jobName / parameters 만 바꿔 그대로 재사용한다.
 # 주의: parameters는 서버 셸에 그대로 전달되므로, 저장소 write 권한자(메인테이너)만 실행하도록 관리한다.
 on:
@@ -26,15 +26,10 @@ on:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - ${{ github.event.inputs.profile }}
     environment: ${{ github.event.inputs.profile }}
     steps:
-      - name: Run job on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.GABIA_HOST }}
-          username: ${{ secrets.GABIA_USER }}
-          key: ${{ secrets.GABIA_SSH_KEY }}
-          port: ${{ secrets.GABIA_PORT }}
-          script: |
-            /opt/azit-batch/run-job.sh "${{ github.event.inputs.jobName }}" ${{ github.event.inputs.parameters }}
+      - name: Run job
+        run: /opt/azit-batch/run-job.sh "${{ github.event.inputs.jobName }}" ${{ github.event.inputs.parameters }}
