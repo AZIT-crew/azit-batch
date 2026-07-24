@@ -19,6 +19,10 @@ COPY --chown=azit:azit --from=agent-downloader /newrelic.jar /newrelic.jar
 ARG JAR_FILE=build/libs/*.jar
 COPY --chown=azit:azit ${JAR_FILE} app.jar
 
+# WORKDIR이 /app을 root 소유로 생성하므로, non-root인 azit이 런타임에 logs/ 하위 디렉토리를
+# 새로 만들 쓰기 권한이 없다 (logback RollingFileAppender가 prod 프로필에서 이 경로에 파일을 씀).
+RUN mkdir -p logs && chown azit:azit logs
+
 USER azit
 
 # --spring.batch.job.name=... baseDate=... 같은 잡 실행 인자를 컨테이너 실행 인자로 전달.
