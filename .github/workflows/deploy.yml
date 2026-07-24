@@ -85,7 +85,7 @@ jobs:
           APPLE_SERVICE_ID=${{ secrets.APPLE_SERVICE_ID }}
           APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
           APPLE_KEY_PATH=${{ secrets.APPLE_KEY_PATH }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_BATCH_WEBHOOK=${{ secrets.DISCORD_BATCH_WEBHOOK }}
           NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}
           EOF
           chmod 600 ${{ env.APP_DIR }}/.env
@@ -109,7 +109,7 @@ jobs:
       - name: Discord Notification
         uses: sarisia/actions-status-discord@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          webhook: ${{ secrets.DISCORD_DEPLOY_WEBHOOK }}
           noprefix: true
           status: ${{ needs.build-and-push.result == 'success' && needs.deploy.result == 'success' && 'success' || 'failure' }}
           title: "🚀 azit-batch 배포 결과"

@@ -51,7 +51,7 @@ sudo chown -R "$USER" /opt/azit-batch
 # 소셜/인증용 키 파일 배치 (애플 .p8 등, 향후 다른 키 추가 시 같은 디렉토리에 함께 둔다)
 # 파일명은 APPLE_KEY_PATH 시크릿과 일치해야 한다
 cp AuthKey_XXXX.p8 /opt/azit-batch/keys/
-chmod 600 /opt/azit-batch/keys/*
+chmod 644 /opt/azit-batch/keys/*
 
 # Docker Hub private 이미지면 서버에서도 로그인
 docker login -u <DOCKER_USERNAME>
