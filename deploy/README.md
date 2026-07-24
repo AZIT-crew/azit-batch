@@ -4,8 +4,8 @@
 
 ```
 GitHub Actions(deploy, profile=dev/prod)     [해당 서버의 self-hosted runner에서 직접 실행] .env 생성 + run-job.sh 설치 + docker pull
-Gabia cron(매일)                             run-job.sh memberPurgeJob baseDate=오늘
-GitHub Actions(수동, profile + jobName)      [해당 서버의 self-hosted runner에서 직접 실행] run-job.sh <jobName> <parameters>
+cron(매일)                                    run-job.sh memberPurgeJob baseDate=오늘
+GitHub Actions(수동, profile + jobName)       [해당 서버의 self-hosted runner에서 직접 실행] run-job.sh <jobName> <parameters>
 ```
 
 `run-job.sh` 는 잡 이름과 파라미터를 받는 범용 런처다. 새 배치 잡이 생겨도 cron 한 줄 / 수동 워크플로우 입력값만 바꿔 재사용한다.
@@ -72,18 +72,53 @@ crontab -e
 ```
 
 ```cron
-# 매일 04:10 KST 회원 개인정보 파기 배치
+# 매일 00:00(자정) KST 회원 개인정보 파기 배치
 # 주의: crontab에서 %는 특수문자(개행)라 date의 %F를 반드시 \%F 로 이스케이프한다.
-10 4 * * * /opt/azit-batch/run-job.sh memberPurgeJob "baseDate=$(date +\%F)" >> /opt/azit-batch/logs/cron.log 2>&1
+0 0 * * * /opt/azit-batch/run-job.sh memberPurgeJob "baseDate=$(date +\%F)" >> /opt/azit-batch/logs/cron.log 2>&1
 ```
 
 서버 TZ가 KST가 아니면 `CRON_TZ=Asia/Seoul` 을 crontab 상단에 추가한다.
+
+## 4. logrotate 설정 (서버에서 1회)
+
+`azit-batch.log`/`error.log`는 logback이 자체적으로 7일치만 남기고 정리하지만, `cron.log`(cron이 매일 stdout을 이어붙이는 파일)는 로테이션 없이 무한정 커진다. `logrotate`로 정리한다.
+
+```bash
+sudo tee /etc/logrotate.d/azit-batch > /dev/null <<'EOF'
+/opt/azit-batch/logs/cron.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y-%m-%d
+    create 644 ubuntu ubuntu
+    su ubuntu ubuntu
+}
+EOF
+```
+
+- `daily` + `rotate 7`: 하루 한 개씩, 7일치(=1주일)만 유지 — 다른 로그와 동일한 보존 기간
+- `create 644 ubuntu ubuntu`: 로테이션 후 새로 만드는 파일 소유자를 cron 실행 계정(`ubuntu`)으로 맞춤. 계정명이 다르면 바꿔야 한다
+- Ubuntu는 `/etc/logrotate.d/`에 파일만 두면 시스템의 기존 일일 logrotate 실행이 자동으로 주워간다 — 별도 스케줄 등록 불필요
+
+**설정 검증** (문법 확인, 실제로 로테이션하진 않음):
+
+```bash
+sudo logrotate -d /etc/logrotate.d/azit-batch
+```
+
+**즉시 한 번 테스트해보고 싶으면**:
+
+```bash
+sudo logrotate -f /etc/logrotate.d/azit-batch
+ls /opt/azit-batch/logs/
+```
 
 ---
 
 ## 참고사항
 
-- **수동 실행**: Actions → *Run batch job (manual)* → `profile` + `jobName`(예: `memberPurgeJob`) + `parameters`(예: `baseDate=2026-07-15`). 범위 재처리는 `parameters`에 `baseDate=... from=... to=...`.
-- **같은 파라미터 재실행 불가**: 동일 파라미터 잡은 `JobInstanceAlreadyCompleteException` 으로 거부된다. memberPurgeJob을 같은 날 재처리하려면 `from`/`to` 로 파라미터를 다르게 준다.
+-  **같은 파라미터 재실행 불가**: 동일 파라미터 잡은 `JobInstanceAlreadyCompleteException` 으로 거부된다.
 - **실패 감지**: 잡이 FAILED로 끝나면 컨테이너가 exit 1 로 종료(`cron.log` 확인)되고 Discord 알림이 발송된다.
-- **부분 실패 재시도**: revoke/S3 오류로 스킵된 회원은 `WITHDRAWN` 으로 남아 다음 날 cron에서 자동 재시도된다.
