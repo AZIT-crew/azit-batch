@@ -40,12 +40,13 @@ RDS 인바운드가 Gabia 서버 IP로만 열려 있으므로, 실제 컨테이�
 
 ```bash
 # Docker 설치 후
-sudo mkdir -p /opt/azit-batch/apple-keys /opt/azit-batch/logs
+sudo mkdir -p /opt/azit-batch/keys /opt/azit-batch/logs
 sudo chown -R "$USER" /opt/azit-batch
 
-# 애플 .p8 키 배치 (파일명은 APPLE_KEY_PATH 시크릿과 일치)
-cp AuthKey_XXXX.p8 /opt/azit-batch/apple-keys/
-chmod 600 /opt/azit-batch/apple-keys/*.p8
+# 소셜/인증용 키 파일 배치 (애플 .p8 등, 향후 다른 키 추가 시 같은 디렉토리에 함께 둔다)
+# 파일명은 APPLE_KEY_PATH 시크릿과 일치해야 한다
+cp AuthKey_XXXX.p8 /opt/azit-batch/keys/
+chmod 600 /opt/azit-batch/keys/*
 
 # Docker Hub private 이미지면 서버에서도 로그인
 docker login -u <DOCKER_USERNAME>
