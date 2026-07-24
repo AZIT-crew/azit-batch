@@ -85,7 +85,7 @@ jobs:
           APPLE_SERVICE_ID=${{ secrets.APPLE_SERVICE_ID }}
           APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
           APPLE_KEY_PATH=${{ secrets.APPLE_KEY_PATH }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK }}
           NEW_RELIC_LICENSE_KEY=${{ secrets.NEW_RELIC_LICENSE_KEY }}
           EOF
           chmod 600 ${{ env.APP_DIR }}/.env
