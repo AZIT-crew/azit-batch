@@ -18,6 +18,9 @@ complexity:
     active: true
     functionThreshold: 8
     constructorThreshold: 8
+    ignoreAnnotated:
+      - "Entity"         # JPA 엔티티는 테이블 컬럼 수만큼 생성자 파라미터가 필요
+      - "Configuration"  # Spring @Configuration은 주입 빈 수만큼 생성자 파라미터가 필요
   TooManyFunctions:
     active: true
     thresholdInFiles: 20
@@ -50,14 +53,17 @@ style:
   # return 생략 가능한 경우 표현식 함수 권장
   UseCheckOrError:
     active: true
-  # 빈 블록 금지
-  EmptyDefaultConstructor:
-    active: true
   # 와일드카드 import 금지
   WildcardImport:
     active: true
     excludeImports:
       - "kotlinx.coroutines.*"
+
+# 빈 블록 금지
+empty-blocks:
+  active: true
+  EmptyDefaultConstructor:
+    active: true
 
 # 명명 규칙
 naming:
@@ -75,7 +81,11 @@ naming:
   VariableNaming:
     active: true
     variablePattern: '[a-z][A-Za-z0-9]*'
-  ConstantNaming:
+  # 상수 명명 (companion object / top-level 상수)
+  ObjectPropertyNaming:
+    active: true
+    constantPattern: '[A-Z][_A-Z0-9]*'
+  TopLevelPropertyNaming:
     active: true
     constantPattern: '[A-Z][_A-Z0-9]*'
   # 약어 지양: req, res, svc 등
@@ -106,6 +116,4 @@ performance:
   SpreadOperator:
     active: false  # Spring Batch JobParameters 빌더 패턴에서 허용
 
-# 포맷팅 (ktlint가 담당하므로 detekt에서는 비활성화)
-formatting:
-  active: false
+# 포맷팅은 ktlint가 담당 (detekt-formatting 플러그인 미사용)

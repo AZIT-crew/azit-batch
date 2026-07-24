@@ -1,0 +1,58 @@
+name: azit-batch CI
+
+on:
+  pull_request:
+    branches: [ develop ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  test-and-lint:
+    name: 테스트 및 린트
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Run Tests
+        run: |
+          chmod +x gradlew
+          ./gradlew test
+
+      - name: Run Lint (ktlint + detekt)
+        run: ./gradlew ktlintCheck detekt
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: '**/build/test-results/test/TEST-*.xml'
+          check_name: '테스트 결과'
+          fail_on_failure: true
+
+  build-check:
+    name: 빌드 검증
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build (compile only)
+        run: |
+          chmod +x gradlew
+          ./gradlew assemble

@@ -9,8 +9,9 @@ trim_trailing_whitespace = true
 insert_final_newline = true
 
 [*.{kt,kts}]
-indent_size = 4
 max_line_length = 120
+# 필드가 많은 JPA 엔티티 등에서 생성자 파라미터마다 빈 줄로 구분하는 스타일을 허용
+ktlint_standard_no-blank-line-in-list = disabled
 
 [*.{yml,yaml}]
 indent_size = 2
