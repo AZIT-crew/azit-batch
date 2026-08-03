@@ -1,8 +1,8 @@
 package com.youthexpedition.azit.batch.job.order.reader
 
 import com.youthexpedition.azit.batch.domain.Order
-import com.youthexpedition.azit.batch.domain.OrderStatus
-import com.youthexpedition.azit.batch.domain.PaymentMethod
+import com.youthexpedition.azit.batch.domain.enums.OrderStatus
+import com.youthexpedition.azit.batch.domain.enums.PaymentMethod
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.infrastructure.item.database.JpaCursorItemReader

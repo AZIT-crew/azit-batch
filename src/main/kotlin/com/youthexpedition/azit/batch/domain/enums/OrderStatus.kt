@@ -1,4 +1,4 @@
-package com.youthexpedition.azit.batch.domain
+package com.youthexpedition.azit.batch.domain.enums
 
 enum class OrderStatus {
     PENDING, // 결제 대기

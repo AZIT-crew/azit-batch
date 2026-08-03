@@ -1,7 +1,7 @@
 package com.youthexpedition.azit.batch.job.member.reader
 
 import com.youthexpedition.azit.batch.domain.Member
-import com.youthexpedition.azit.batch.domain.MemberStatus
+import com.youthexpedition.azit.batch.domain.enums.MemberStatus
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.infrastructure.item.database.JpaCursorItemReader

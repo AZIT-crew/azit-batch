@@ -1,6 +1,6 @@
 package com.youthexpedition.azit.batch.job.member.dto
 
-import com.youthexpedition.azit.batch.domain.SocialProvider
+import com.youthexpedition.azit.batch.domain.enums.SocialProvider
 
 data class MemberPurgeTarget(
     val memberId: Long,
