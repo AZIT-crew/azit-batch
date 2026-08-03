@@ -26,15 +26,11 @@ class OrderExpireItemWriter(
             return
         }
 
-        // 재고 복구
+        // 재고 복구 (실패 시 예외를 던져 트랜잭션을 롤백하고 skip으로 보낸다. 주문은 PENDING으로 남아 다음 실행에서 재시도된다)
         orderRepository.findSkuQuantitiesByOrderId(target.orderId).forEach { item ->
             val restored = orderRepository.restoreStock(item.getSkuId(), item.getQuantity())
-            if (restored == 0) {
-                log.warn(
-                    "[ORDER_EXPIRE] orderId: {} skuId: {} 재고 복구 대상을 찾지 못했습니다.",
-                    target.orderId,
-                    item.getSkuId(),
-                )
+            check(restored == 1) {
+                "[ORDER_EXPIRE] orderId: ${target.orderId} skuId: ${item.getSkuId()} 재고 복구에 실패했습니다."
             }
         }
 
