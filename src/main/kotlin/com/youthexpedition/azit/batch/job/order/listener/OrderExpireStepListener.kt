@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 
 /**
  * 만료 스텝의 스킵 로깅 + 종료 시 대상/성공/실패 건수 요약 로깅을 함께 담당한다.
- * readCount = 대상 총 건수, writeCount = 성공 건수, skipCount = 실패 건수.
+ * readCount = 대상 총 건수, writeCount = 성공 건수(만료 대상이 아니어서 건너뛴 건 포함), skipCount = 실패 건수.
  */
 @Component
 class OrderExpireStepListener :
@@ -40,7 +40,7 @@ class OrderExpireStepListener :
 
     override fun afterStep(stepExecution: StepExecution): ExitStatus {
         log.info(
-            "[ORDER_EXPIRE] 주문 만료 배치 종료 - 대상: {}건, 성공: {}건, 실패: {}건",
+            "[ORDER_EXPIRE] 주문 만료 배치 종료 - 대상: {}건, 성공(대상 아님 포함): {}건, 실패: {}건",
             stepExecution.readCount,
             stepExecution.writeCount,
             stepExecution.skipCount,

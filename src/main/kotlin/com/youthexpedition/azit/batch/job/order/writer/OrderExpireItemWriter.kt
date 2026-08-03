@@ -19,7 +19,7 @@ class OrderExpireItemWriter(
     override fun write(chunk: Chunk<out OrderExpireTarget>) = chunk.items.forEach(::expire)
 
     private fun expire(target: OrderExpireTarget) {
-        // 만료 처리 (배치 실행 중 실제 입금 확인되어 PAID로 바뀐 주문을 보호하는 조건부 UPDATE)
+        // 만료 처리 (writeCount에는 집계되지만 실제 처리가 아닌 건너뛴 건, 배치 실행 중 실제 입금 확인되어 PAID로 바뀐 주문을 보호하는 조건부 UPDATE)
         val expired = orderRepository.expireOrder(target.orderId)
         if (expired == 0) {
             log.warn("[ORDER_EXPIRE] orderId: {} 만료 대상이 아니어서 건너뜁니다. (실행 중 결제 확인 완료)", target.orderId)
@@ -28,7 +28,14 @@ class OrderExpireItemWriter(
 
         // 재고 복구
         orderRepository.findSkuQuantitiesByOrderId(target.orderId).forEach { item ->
-            orderRepository.restoreStock(item.getSkuId(), item.getQuantity())
+            val restored = orderRepository.restoreStock(item.getSkuId(), item.getQuantity())
+            if (restored == 0) {
+                log.warn(
+                    "[ORDER_EXPIRE] orderId: {} skuId: {} 재고 복구 대상을 찾지 못했습니다.",
+                    target.orderId,
+                    item.getSkuId(),
+                )
+            }
         }
 
         // 사용 포인트 환불 + 환불 이력 저장
