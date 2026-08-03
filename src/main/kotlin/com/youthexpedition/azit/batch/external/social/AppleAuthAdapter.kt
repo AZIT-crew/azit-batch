@@ -1,6 +1,6 @@
 package com.youthexpedition.azit.batch.external.social
 
-import com.youthexpedition.azit.batch.domain.SocialProvider
+import com.youthexpedition.azit.batch.domain.enums.SocialProvider
 import com.youthexpedition.azit.batch.external.client.AppleAuthClient
 import com.youthexpedition.azit.batch.external.dto.SocialRevokeCommand
 import org.slf4j.LoggerFactory

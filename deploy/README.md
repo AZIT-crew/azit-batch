@@ -4,15 +4,11 @@
 
 ```
 GitHub Actions(deploy, profile=dev/prod)     [해당 서버의 self-hosted runner에서 직접 실행] .env 생성 + run-job.sh 설치 + docker pull
-Gabia cron(매일)                             run-job.sh memberPurgeJob baseDate=오늘
-GitHub Actions(수동, profile + jobName)      [해당 서버의 self-hosted runner에서 직접 실행] run-job.sh <jobName> <parameters>
+cron(매일)                                    run-job.sh memberPurgeJob baseDate=오늘
+GitHub Actions(수동, profile + jobName)       [해당 서버의 self-hosted runner에서 직접 실행] run-job.sh <jobName> <parameters>
 ```
 
 `run-job.sh` 는 잡 이름과 파라미터를 받는 범용 런처다. 새 배치 잡이 생겨도 cron 한 줄 / 수동 워크플로우 입력값만 바꿔 재사용한다.
-
-**SSH를 쓰지 않는다.** dev/prod 서버 각각에 GitHub Actions **self-hosted runner** 를 설치해두면, `deploy`/`run-job` 워크플로우가 그 서버 위에서 직접 실행된다. `profile` 입력값이 곧 러너를 고르는 라벨이라(`runs-on: [self-hosted, dev]` 또는 `prod`), 원하는 서버로 자동 라우팅된다. 이 방식이면 GitHub 러너의 (매번 바뀌는) IP를 서버 방화벽에 허용해줄 필요가 없다.
-
-> **보안 참고**: self-hosted runner는 보통 "외부 PR이 워크플로우를 트리거해 서버에서 임의 코드를 실행"하는 게 위험 포인트다. 여기 두 워크플로우는 모두 `workflow_dispatch`(수동 실행)만 트리거로 두고 있어 저장소에 write 권한이 있는 사람만 실행할 수 있다 — 이 구조를 유지하는 한 `pull_request` 등 외부에서 자동으로 트리거되는 이벤트를 이 러너에 연결하지 않는다.
 
 ---
 
@@ -72,18 +68,59 @@ crontab -e
 ```
 
 ```cron
-# 매일 04:10 KST 회원 개인정보 파기 배치
+# 매일 00:00(자정) KST 회원 개인정보 파기 배치
 # 주의: crontab에서 %는 특수문자(개행)라 date의 %F를 반드시 \%F 로 이스케이프한다.
-10 4 * * * /opt/azit-batch/run-job.sh memberPurgeJob "baseDate=$(date +\%F)" >> /opt/azit-batch/logs/cron.log 2>&1
+0 0 * * * /opt/azit-batch/run-job.sh memberPurgeJob "baseDate=$(date +\%F)" >> /opt/azit-batch/logs/cron.log 2>&1
+
+# 매시 정각 무통장입금 입금 기한(24시간) 만료 주문 처리
+# referenceTime은 LocalDateTime.parse()가 그대로 읽는 오프셋 없는 ISO 형식(yyyy-MM-ddTHH:mm:ss)이어야 하므로
+# date -Iseconds(타임존 오프셋 포함) 대신 명시적 포맷 문자열을 쓴다.
+0 * * * * /opt/azit-batch/run-job.sh orderExpireJob "referenceTime=$(date +\%Y-\%m-\%dT\%H:\%M:\%S)" >> /opt/azit-batch/logs/cron.log 2>&1
 ```
 
 서버 TZ가 KST가 아니면 `CRON_TZ=Asia/Seoul` 을 crontab 상단에 추가한다.
+
+## 4. logrotate 설정 (서버에서 1회)
+
+`azit-batch.log`/`error.log`는 logback이 자체적으로 7일치만 남기고 정리하지만, `cron.log`(cron이 매일 stdout을 이어붙이는 파일)는 로테이션 없이 무한정 커진다. `logrotate`로 정리한다.
+
+```bash
+sudo tee /etc/logrotate.d/azit-batch > /dev/null <<'EOF'
+/opt/azit-batch/logs/cron.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y-%m-%d
+    create 644 ubuntu ubuntu
+    su ubuntu ubuntu
+}
+EOF
+```
+
+- `daily` + `rotate 7`: 하루 한 개씩, 7일치(=1주일)만 유지 — 다른 로그와 동일한 보존 기간
+- `create 644 ubuntu ubuntu`: 로테이션 후 새로 만드는 파일 소유자를 cron 실행 계정(`ubuntu`)으로 맞춤. 계정명이 다르면 바꿔야 한다
+- Ubuntu는 `/etc/logrotate.d/`에 파일만 두면 시스템의 기존 일일 logrotate 실행이 자동으로 주워간다 — 별도 스케줄 등록 불필요
+
+**설정 검증** (문법 확인, 실제로 로테이션하진 않음):
+
+```bash
+sudo logrotate -d /etc/logrotate.d/azit-batch
+```
+
+**즉시 한 번 테스트해보고 싶으면**:
+
+```bash
+sudo logrotate -f /etc/logrotate.d/azit-batch
+ls /opt/azit-batch/logs/
+```
 
 ---
 
 ## 참고사항
 
-- **수동 실행**: Actions → *Run batch job (manual)* → `profile` + `jobName`(예: `memberPurgeJob`) + `parameters`(예: `baseDate=2026-07-15`). 범위 재처리는 `parameters`에 `baseDate=... from=... to=...`.
-- **같은 파라미터 재실행 불가**: 동일 파라미터 잡은 `JobInstanceAlreadyCompleteException` 으로 거부된다. memberPurgeJob을 같은 날 재처리하려면 `from`/`to` 로 파라미터를 다르게 준다.
+- **같은 파라미터 재실행 불가**: 동일 파라미터 잡은 `JobInstanceAlreadyCompleteException` 으로 거부된다. (`orderExpireJob`은 `referenceTime`이 매 실행마다 고유해 해당 없음)
+- **orderExpireJob 부수효과**: 주문을 EXPIRED로 바꾸는 것 외에 재고 복구·사용 포인트 환불도 함께 처리한다. 실제 결제 금액은 PENDING 상태에서 입금된 적이 없어 환불 대상이 아니다.
 - **실패 감지**: 잡이 FAILED로 끝나면 컨테이너가 exit 1 로 종료(`cron.log` 확인)되고 Discord 알림이 발송된다.
-- **부분 실패 재시도**: revoke/S3 오류로 스킵된 회원은 `WITHDRAWN` 으로 남아 다음 날 cron에서 자동 재시도된다.

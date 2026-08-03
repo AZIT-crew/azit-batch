@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface MemberRepository : JpaRepository<Member, Long> {
     /**
@@ -68,5 +69,31 @@ interface MemberRepository : JpaRepository<Member, Long> {
     @Query(value = "DELETE FROM point_history WHERE member_id = :memberId", nativeQuery = true)
     fun deletePointHistories(
         @Param("memberId") memberId: Long,
+    ): Int
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE member SET total_points = total_points + :points WHERE id = :memberId", nativeQuery = true)
+    fun refundPoints(
+        @Param("memberId") memberId: Long,
+        @Param("points") points: Long,
+    ): Int
+
+    /**
+     * 환불 이력 저장.
+     * INSERT IGNORE로 멱등성 보장 (배치 재시도 시 포인트 이중 환불 방지).
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(
+        value = """
+            INSERT IGNORE INTO point_history (member_id, points, type, reference_id, created_at)
+            VALUES (:memberId, :points, 'STORE_USE_REFUND', :orderId, :createdAt)
+        """,
+        nativeQuery = true,
+    )
+    fun insertPointRefundHistory(
+        @Param("memberId") memberId: Long,
+        @Param("points") points: Long,
+        @Param("orderId") orderId: Long,
+        @Param("createdAt") createdAt: LocalDateTime,
     ): Int
 }

@@ -1,8 +1,8 @@
 package com.youthexpedition.azit.batch.job.member.processor
 
 import com.youthexpedition.azit.batch.domain.Member
-import com.youthexpedition.azit.batch.domain.MemberStatus
-import com.youthexpedition.azit.batch.domain.SocialProvider
+import com.youthexpedition.azit.batch.domain.enums.MemberStatus
+import com.youthexpedition.azit.batch.domain.enums.SocialProvider
 import java.time.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals

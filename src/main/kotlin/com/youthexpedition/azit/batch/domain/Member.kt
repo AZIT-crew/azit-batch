@@ -1,5 +1,8 @@
 package com.youthexpedition.azit.batch.domain
 
+import com.youthexpedition.azit.batch.domain.enums.MemberRole
+import com.youthexpedition.azit.batch.domain.enums.MemberStatus
+import com.youthexpedition.azit.batch.domain.enums.SocialProvider
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

@@ -1,4 +1,4 @@
-package com.youthexpedition.azit.batch.domain
+package com.youthexpedition.azit.batch.domain.enums
 
 enum class MemberStatus {
     ACTIVE, // 약관 동의 완료, 앱 사용 가능
