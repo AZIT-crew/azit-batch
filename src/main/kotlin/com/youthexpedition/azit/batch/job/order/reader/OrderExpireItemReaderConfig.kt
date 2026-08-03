@@ -39,7 +39,6 @@ class OrderExpireItemReaderConfig {
             to?.let(LocalDateTime::parse)
                 ?: LocalDateTime.parse(referenceTime).minusHours(PAYMENT_DUE_HOURS)
         val fromDateTime = from?.let(LocalDateTime::parse)
-        println("deadline: $deadline")
 
         val parameters =
             mutableMapOf<String, Any>(

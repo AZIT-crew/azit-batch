@@ -49,7 +49,7 @@ class OrderExpireJobConfig(
     fun orderExpireJob(): Job =
         JobBuilder(JOB_NAME, jobRepository)
             .start(orderExpireStep())
-//            .listener(discordNotificationJobListener)
+            .listener(discordNotificationJobListener)
             .listener(jobFailureExitCodeGenerator)
             .build()
 
