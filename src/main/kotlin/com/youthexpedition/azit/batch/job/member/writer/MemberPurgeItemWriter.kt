@@ -4,6 +4,7 @@ import com.youthexpedition.azit.batch.external.dto.SocialRevokeCommand
 import com.youthexpedition.azit.batch.external.s3.ImageStoragePort
 import com.youthexpedition.azit.batch.external.social.SocialAuthPortRouter
 import com.youthexpedition.azit.batch.job.member.dto.MemberPurgeTarget
+import com.youthexpedition.azit.batch.job.member.dto.SocialAccountPurgeTarget
 import com.youthexpedition.azit.batch.repository.MemberRepository
 import org.slf4j.LoggerFactory
 import org.springframework.batch.infrastructure.item.Chunk
@@ -22,14 +23,12 @@ class MemberPurgeItemWriter(
 
     /**
      * 회원 1명 파기 파이프라인.
-     * 순서 중요: 소셜 revoke는 socialProviderId / appleRefreshToken이 익명화로 지워지기 전에 실행해야 한다.
+     * 순서 중요: 소셜 revoke는 member_social_account row가 삭제되기 전에 실행해야 한다.
      * revoke, S3 삭제는 멱등이므로 이후 DB 단계가 롤백되어도 재실행 시 문제가 없다.
      */
     private fun purge(target: MemberPurgeTarget) {
-        // 1. 소셜 연동 해제
-        socialAuthPortRouter
-            .getAdapter(target.socialProvider)
-            .revoke(SocialRevokeCommand(target.socialProviderId, target.appleRefreshToken))
+        // 1. 연동된 모든 소셜 계정 연동 해제
+        target.socialAccounts.forEach { revoke(target.memberId, it) }
 
         // 2. S3 프로필 이미지 삭제
         target.profileImageS3Key?.let(imageStoragePort::delete)
@@ -41,15 +40,32 @@ class MemberPurgeItemWriter(
             return
         }
 
-        // 4. 배송지 삭제
+        // 4. 소셜 계정 삭제 (row 없음 = 소셜 연동 파기 완료)
+        memberRepository.deleteSocialAccounts(target.memberId)
+
+        // 5. 배송지 삭제
         memberRepository.deleteDeliveryAddresses(target.memberId)
 
-        // 5. 주문 배송지 스냅샷 마스킹 (주문 레코드는 법정 보존 기간으로 유지)
+        // 6. 주문 배송지 스냅샷 마스킹 (주문 레코드는 법정 보존 기간으로 유지)
         memberRepository.maskOrderDeliverySnapshots(target.memberId)
 
-        // 6. 포인트 이력 삭제
+        // 7. 포인트 이력 삭제
         memberRepository.deletePointHistories(target.memberId)
 
+        // 8. 약관 동의 현재 상태 및 변경 이력 삭제
+        memberRepository.deleteTermsConsents(target.memberId)
+        memberRepository.deleteTermsConsentHistories(target.memberId)
+
         log.info("[MEMBER_PURGE] memberId: {} 개인정보 파기를 완료했습니다.", target.memberId)
+    }
+
+    private fun revoke(
+        memberId: Long,
+        account: SocialAccountPurgeTarget,
+    ) {
+        log.info("[MEMBER_PURGE] memberId: {} 의 {} 연동을 해제합니다.", memberId, account.socialProvider)
+        socialAuthPortRouter
+            .getAdapter(account.socialProvider)
+            .revoke(SocialRevokeCommand(account.socialProviderId, account.appleRefreshToken))
     }
 }

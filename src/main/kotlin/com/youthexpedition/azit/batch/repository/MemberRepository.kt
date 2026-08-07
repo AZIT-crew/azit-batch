@@ -12,6 +12,9 @@ interface MemberRepository : JpaRepository<Member, Long> {
      * 회원 개인정보 익명화 + 파기 완료(DELETED) 처리.
      * WHERE status = 'WITHDRAWN' 조건으로 배치 실행 중 재활성화된 회원(ACTIVE) 및
      * 이미 파기된 회원(DELETED)을 보호한다. 영향 행이 0이면 후속 파기 단계를 진행하지 않는다.
+     *
+     * 소셜 연동 정보(social_provider_id, apple_refresh_token, is_email_sharing_enabled)는
+     * member_social_account로 분리되었으므로 deleteSocialAccounts에서 row 삭제로 파기한다.
      */
     @Modifying(clearAutomatically = true)
     @Query(
@@ -19,9 +22,6 @@ interface MemberRepository : JpaRepository<Member, Long> {
             UPDATE member SET
                 nickname = '알 수 없음',
                 email = NULL,
-                is_email_sharing_enabled = false,
-                social_provider_id = NULL,
-                apple_refresh_token = NULL,
                 profile_image_url = '/default/member/default_unknown.svg',
                 essential_terms_agreed_at = NULL,
                 marketing_terms_agreed_at = NULL,
@@ -34,6 +34,16 @@ interface MemberRepository : JpaRepository<Member, Long> {
         nativeQuery = true,
     )
     fun anonymize(
+        @Param("memberId") memberId: Long,
+    ): Int
+
+    /**
+     * 연동된 소셜 계정 전체 삭제. row가 없는 상태가 소셜 연동 파기 완료를 의미한다.
+     * 반드시 소셜 revoke를 모두 호출한 뒤에 실행해야 한다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "DELETE FROM member_social_account WHERE member_id = :memberId", nativeQuery = true)
+    fun deleteSocialAccounts(
         @Param("memberId") memberId: Long,
     ): Int
 
@@ -68,6 +78,22 @@ interface MemberRepository : JpaRepository<Member, Long> {
     @Modifying(clearAutomatically = true)
     @Query(value = "DELETE FROM point_history WHERE member_id = :memberId", nativeQuery = true)
     fun deletePointHistories(
+        @Param("memberId") memberId: Long,
+    ): Int
+
+    /**
+     * 약관 동의 현재 상태 삭제.
+     * 별도 보존 의무가 없고, anonymize가 member의 동의 시점 필드도 함께 지우므로 같이 파기한다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = "DELETE FROM member_terms_consent WHERE member_id = :memberId", nativeQuery = true)
+    fun deleteTermsConsents(
+        @Param("memberId") memberId: Long,
+    ): Int
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = "DELETE FROM member_terms_consent_history WHERE member_id = :memberId", nativeQuery = true)
+    fun deleteTermsConsentHistories(
         @Param("memberId") memberId: Long,
     ): Int
 

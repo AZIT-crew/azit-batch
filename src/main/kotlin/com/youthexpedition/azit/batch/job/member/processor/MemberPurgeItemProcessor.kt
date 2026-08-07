@@ -1,7 +1,9 @@
 package com.youthexpedition.azit.batch.job.member.processor
 
 import com.youthexpedition.azit.batch.domain.Member
+import com.youthexpedition.azit.batch.domain.MemberSocialAccount
 import com.youthexpedition.azit.batch.job.member.dto.MemberPurgeTarget
+import com.youthexpedition.azit.batch.job.member.dto.SocialAccountPurgeTarget
 import org.springframework.batch.infrastructure.item.ItemProcessor
 import org.springframework.stereotype.Component
 
@@ -14,10 +16,15 @@ class MemberPurgeItemProcessor : ItemProcessor<Member, MemberPurgeTarget> {
     override fun process(member: Member): MemberPurgeTarget =
         MemberPurgeTarget(
             memberId = member.id,
-            socialProvider = member.socialProvider,
-            socialProviderId = member.socialProviderId,
-            appleRefreshToken = member.appleRefreshToken,
+            socialAccounts = member.socialAccounts.map(::toSocialAccountTarget),
             profileImageS3Key = extractOwnS3Key(member.profileImageUrl),
+        )
+
+    private fun toSocialAccountTarget(account: MemberSocialAccount): SocialAccountPurgeTarget =
+        SocialAccountPurgeTarget(
+            socialProvider = account.socialProvider,
+            socialProviderId = account.socialProviderId,
+            appleRefreshToken = account.appleRefreshToken,
         )
 
     /**

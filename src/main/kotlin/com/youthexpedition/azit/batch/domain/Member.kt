@@ -2,14 +2,16 @@ package com.youthexpedition.azit.batch.domain
 
 import com.youthexpedition.azit.batch.domain.enums.MemberRole
 import com.youthexpedition.azit.batch.domain.enums.MemberStatus
-import com.youthexpedition.azit.batch.domain.enums.SocialProvider
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
@@ -20,27 +22,14 @@ class Member(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0L,
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "social_provider", nullable = false, length = 20)
-    val socialProvider: SocialProvider,
-
-    @Column(name = "social_provider_id", length = 255)
-    val socialProviderId: String?,
-
     @Column(name = "nickname", nullable = false, length = 20)
     val nickname: String = "",
 
     @Column(name = "email", length = 255)
-    val email: String? = null,
-
-    @Column(name = "is_email_sharing_enabled", nullable = false)
-    val isEmailSharingEnabled: Boolean = true,
+    val email: String? = null, // 대표 이메일
 
     @Column(name = "profile_image_url", length = 255)
     val profileImageUrl: String?,
-
-    @Column(name = "apple_refresh_token", length = 500)
-    val appleRefreshToken: String?,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -79,4 +68,11 @@ class Member(
 
     @Column(name = "updated_at", insertable = false, updatable = false)
     val updatedAt: LocalDateTime? = null, // 데이터 수정일시 (DB on update)
+
+    /**
+     * 연동된 소셜 계정 목록.
+     */
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", insertable = false, updatable = false)
+    val socialAccounts: List<MemberSocialAccount> = emptyList(),
 )
