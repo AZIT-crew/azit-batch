@@ -68,6 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 가비아 임시 DB 기간: GABIA_DB_* 가 있으면 우선 사용, 지우면 기존 DB_*(RDS)로 복귀
       - name: Write .env
         run: |
           mkdir -p ${{ env.APP_DIR }}
@@ -75,9 +76,9 @@ jobs:
           DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
           IMAGE_TAG=${{ github.event.inputs.version }}
           TARGET_PROFILE=${{ github.event.inputs.profile }}
-          DB_URL=${{ secrets.DB_URL }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_URL=${{ secrets.GABIA_DB_URL || secrets.DB_URL }}
+          DB_USERNAME=${{ secrets.GABIA_DB_USERNAME || secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.GABIA_DB_PASSWORD || secrets.DB_PASSWORD }}
           AWS_S3_ACCESS_KEY=${{ secrets.AWS_S3_ACCESS_KEY }}
           AWS_S3_SECRET_KEY=${{ secrets.AWS_S3_SECRET_KEY }}
           KAKAO_ADMIN_KEY=${{ secrets.KAKAO_ADMIN_KEY }}
